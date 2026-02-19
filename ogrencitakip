@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Öğrenci Takip Sistemi</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        img { width: 100px; }
+    </style>
+</head>
+<body>
+    <h2>Yeni Çalışma Ekle</h2>
+    <form action="/ekle" method="post" enctype="multipart/form-data">
+        <input type="text" name="ad" placeholder="Öğrenci Adı Soyadı" required>
+        <input type="text" name="calisma" placeholder="Yapılan Çalışma" required>
+        <input type="text" name="durum" placeholder="Gelişim Durumu" required>
+        <input type="file" name="dosya" accept="image/*">
+        <button type="submit">Kaydet</button>
+    </form>
+
+    <hr>
+
+    <h2>Aylık Gelişim Tablosu</h2>
+    <table>
+        <tr>
+            <th>Öğrenci Adı Soyadı</th>
+            <th>Çalışma</th>
+            <th>Gelişim Durumu</th>
+            <th>Görsel</th>
+        </tr>
+        {% for kayit in kayitlar %}
+        <tr>
+            <td>{{ kayit.ad }}</td>
+            <td>{{ kayit.calisma }}</td>
+            <td>{{ kayit.durum }}</td>
+            <td><img src="{{ url_for('static', filename=kayit.resim) }}"></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
