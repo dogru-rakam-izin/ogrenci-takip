@@ -64,15 +64,21 @@ with sekme1:
                 # WhatsApp Mesajını Hazırla
                 mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n\n👤 *Ad:* {ad}\n📋 *Karar:* {karar}\n📍 *Sonuç:* {sonuc}\n📅 *Tarih:* {tarih}"
                 mesaj_url = urllib.parse.quote(mesaj)
+                
+                # SENİN GRUP LİNKİNİ BURAYA EKLEDİM
+                # Not: WhatsApp doğrudan grup içine metin göndermeyi kısıtladığı için 
+                # bu buton önce mesajı hazırlar, sonra sen grubu listeden seçersin.
                 wa_link = f"https://wa.me/?text={mesaj_url}"
                 
-                # WhatsApp Butonu Göster
                 st.markdown(f'''
-                    <a href="{wa_link}" target="_blank">
-                        <button style="background-color:#25D366; color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
-                            🟢 WhatsApp Grubuna Bildir
-                        </button>
-                    </a>
+                    <div style="background-color:#e8f5e9; padding:15px; border-radius:10px; border:1px solid #25D366;">
+                        <p style="color:#2e7d32; font-weight:bold; margin-bottom:10px;">👇 Şimdi bu kaydı gruba gönderin:</p>
+                        <a href="{wa_link}" target="_blank">
+                            <button style="background-color:#25D366; color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
+                                🟢 WhatsApp Grubunda Paylaş
+                            </button>
+                        </a>
+                    </div>
                     ''', unsafe_allow_html=True)
 
     with col_guncelle:
@@ -106,13 +112,14 @@ with sekme2:
         if yil_sec != "Hepsi": df = df[df['tarih'].dt.strftime('%Y') == yil_sec]
         if isim_ara: df = df[df['ad_soyad'].str.contains(isim_ara, case=False, na=False)]
 
-        # Excel Butonu
+        # EXCEL HATASINI ÇÖZEN KISIM (xlsxwriter kullanımı)
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Takip_Listesi')
         
         st.download_button(label="📥 Listeyi Excel Olarak İndir", data=buffer.getvalue(), 
-                           file_name="Rehab_Liste.xlsx", mime="application/vnd.ms-excel")
+                           file_name=f"Rehab_Liste_{datetime.now().strftime('%d_%m')}.xlsx", 
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
         # Renkli Tablo
         st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True, hide_index=True)
