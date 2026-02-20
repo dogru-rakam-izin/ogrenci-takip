@@ -43,7 +43,7 @@ with col_form:
         veli = st.text_input("Veli Adı")
         tel = st.text_input("Telefon")
         deger = st.text_area("Değerlendirme")
-        karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor Yenileme", "Mezun", "Beklemede"])
+        karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
         
         # Sonuç Kısmı (İstediğin seçeneklerle)
         sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "İptal"])
@@ -113,3 +113,4 @@ with col_liste:
                 st.rerun()
     else:
         st.info("Kriterlere uygun kayıt bulunamadı.")
+
