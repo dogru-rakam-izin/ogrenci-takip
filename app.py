@@ -68,8 +68,8 @@ if giris_yap(): # Şifre doğruysa buradaki kodlar çalışır
                 veli = st.text_input("Veli Adı")
                 tel = st.text_input("Telefon")
                 deger = st.text_area("Değerlendirme")
-                karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor Yenileme", "Mezun", "Beklemede"])
-                sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "İptal"])
+                karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
+                sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Beklemede", Hastane Sürecinde", "RAM Sürecinde", "İptal"])
                 adres = st.text_area("Adres")
                 tarih = st.date_input("Kayıt Tarihi", datetime.now())
                 
@@ -155,3 +155,4 @@ if giris_yap(): # Şifre doğruysa buradaki kodlar çalışır
                     st.rerun()
         else:
             st.warning("Görüntülenecek veri bulunamadı.")
+
