@@ -5,17 +5,17 @@ from datetime import datetime
 import io
 import urllib.parse
 
-# --- 1. GİRİŞ PANELİ (ŞİFRE GÜNCELLENDİ) ---
+# --- 1. GİRİŞ PANELİ ---
 def giris_yap():
     if "giris_basarili" not in st.session_state:
         st.session_state["giris_basarili"] = False
 
     if not st.session_state["giris_basarili"]:
         st.title("🔒 Yetkili Girişi")
-        # Yeni şifren: 202026
+        # Şifren: 202026
         sifre = st.text_input("Lütfen sistem şifresini giriniz:", type="password")
         if st.button("Giriş Yap"):
-            if sifre == "202026":  # ŞİFRE BURADA GÜNCELLENDİ
+            if sifre == "202026":
                 st.session_state["giris_basarili"] = True
                 st.rerun()
             else:
@@ -23,8 +23,9 @@ def giris_yap():
         return False
     return True
 
-# --- 2. VERİTABANI VE AYARLAR ---
+# --- 2. VERİTABANI BAĞLANTISI ---
 def db_baglan():
+    # Bu kısım mevcut 'rehab_merkezi.db' dosyanıza bağlanır, verileri silmez.
     conn = sqlite3.connect('rehab_merkezi.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS kayitlar 
@@ -34,7 +35,7 @@ def db_baglan():
     conn.commit()
     return conn
 
-# Renk Fonksiyonu (Beklemede eklendi)
+# Renk Fonksiyonu
 def renk_ata(val):
     color = 'white'
     if val == 'Hastane Sürecinde': color = '#FFA500' 
@@ -57,6 +58,7 @@ if giris_yap():
 
     sekme1, sekme2 = st.tabs(["➕ Yeni Kayıt & Güncelleme", "📋 Liste & Excel"])
 
+    # --- SEKME 1: KAYIT VE GÜNCELLEME ---
     with sekme1:
         col_yeni, col_guncelle = st.columns(2)
         
@@ -100,11 +102,29 @@ if giris_yap():
                 st.success("Güncellendi!")
                 st.rerun()
 
+    # --- SEKME 2: LİSTE VE SİLME ---
     with sekme2:
+        # FİLTRELEME ALANI
+        st.subheader("📋 Kayıtlı Veriler")
         f1, f2, f3 = st.columns(3)
         with f1: ay_sec = st.selectbox("Ay", ["Hepsi"] + [str(i).zfill(2) for i in range(1, 13)])
         with f2: yil_sec = st.selectbox("Yıl", ["Hepsi"] + [str(i) for i in range(2024, 2030)])
         with f3: isim_ara = st.text_input("🔍 İsimle Ara")
+
+        # KAYIT SİLME PANELİ (Yeni ve görünür yer)
+        with st.expander("🗑️ KAYIT SİLME PANELİ (Buraya Tıklayın)"):
+            st.warning("⚠️ Dikkat: Bir kaydı silmek için tablodaki ID numarasını girin. Bu işlem geri alınamaz.")
+            sil_id = st.number_input("Silinecek Öğrenci ID'si", min_value=1, step=1, key="silme_id")
+            if st.button("🔴 SEÇİLİ KAYDI SİL"):
+                conn = db_baglan()
+                cur = conn.cursor()
+                cur.execute("DELETE FROM kayitlar WHERE id=?", (sil_id,))
+                conn.commit()
+                conn.close()
+                st.error(f"ID {sil_id} başarıyla sistemden silindi!")
+                st.rerun()
+
+        st.markdown("---")
 
         conn = db_baglan()
         df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
@@ -126,4 +146,3 @@ if giris_yap():
             st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True, hide_index=True)
         else:
             st.warning("Veri bulunamadı.")
-
