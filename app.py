@@ -68,7 +68,7 @@ if giris_yap():
                 veli = st.text_input("Veli Adı")
                 tel = st.text_input("Telefon")
                 deger = st.text_area("Değerlendirme")
-                karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor Yenileme", "Mezun", "Beklemede"])
+                karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
                 sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
                 adres = st.text_area("Adres")
                 tarih = st.date_input("Kayıt Tarihi", datetime.now())
@@ -126,3 +126,4 @@ if giris_yap():
             st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True, hide_index=True)
         else:
             st.warning("Veri bulunamadı.")
+
