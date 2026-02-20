@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 import io
+import urllib.parse
 
 # 1. Veritabanı Fonksiyonları
 def db_baglan():
@@ -16,22 +17,21 @@ def db_baglan():
     return conn
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Rehabilitasyon Profesyonel Takip", layout="wide")
+st.set_page_config(page_title="Rehabilitasyon Pro Takip", layout="wide")
 
 # Renk Fonksiyonu
 def renk_ata(val):
     color = 'white'
-    if val == 'Hastane Sürecinde': color = '#FFA500' # Turuncu
-    elif val == 'RAM Sürecinde': color = '#1E90FF' # Mavi
-    elif val == 'İptal': color = '#FF4B4B' # Kırmızı
-    elif val == 'Kaydedildi': color = '#28A745' # Yeşil
+    if val == 'Hastane Sürecinde': color = '#FFA500' 
+    elif val == 'RAM Sürecinde': color = '#1E90FF' 
+    elif val == 'İptal': color = '#FF4B4B' 
+    elif val == 'Kaydedildi': color = '#28A745' 
     return f'background-color: {color}; color: white; font-weight: bold'
 
-st.title("🏥 Rehabilitasyon Merkezi | Profesyonel Yönetim Paneli")
-st.markdown("---")
+st.title("🏥 Rehabilitasyon Merkezi Yönetim Paneli")
 
-# Sekmeli Yapı (Kayıt, Güncelleme ve Listeleme için)
-sekme1, sekme2 = st.tabs(["➕ Yeni Kayıt & Güncelleme", "📋 Liste & Raporlama"])
+# Sekmeli Yapı
+sekme1, sekme2 = st.tabs(["➕ Yeni Kayıt & Güncelleme", "📋 Liste & Excel"])
 
 # --- SEKME 1: KAYIT VE GÜNCELLEME ---
 with sekme1:
@@ -51,6 +51,7 @@ with sekme1:
             tarih = st.date_input("Kayıt Tarihi", datetime.now())
             
             submit = st.form_submit_button("Sisteme Kaydet")
+            
             if submit and ad:
                 conn = db_baglan()
                 cur = conn.cursor()
@@ -59,13 +60,25 @@ with sekme1:
                 conn.commit()
                 conn.close()
                 st.success(f"✅ {ad} kaydedildi!")
-                st.rerun()
+                
+                # WhatsApp Mesajını Hazırla
+                mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n\n👤 *Ad:* {ad}\n📋 *Karar:* {karar}\n📍 *Sonuç:* {sonuc}\n📅 *Tarih:* {tarih}"
+                mesaj_url = urllib.parse.quote(mesaj)
+                wa_link = f"https://wa.me/?text={mesaj_url}"
+                
+                # WhatsApp Butonu Göster
+                st.markdown(f'''
+                    <a href="{wa_link}" target="_blank">
+                        <button style="background-color:#25D366; color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
+                            🟢 WhatsApp Grubuna Bildir
+                        </button>
+                    </a>
+                    ''', unsafe_allow_html=True)
 
     with col_guncelle:
-        st.subheader("🔄 Durum Güncelle (Hastane -> Kaydedildi vb.)")
-        st.info("Değiştirmek istediğiniz kaydın ID numarasını sağdaki listeden bakıp buraya yazın.")
+        st.subheader("🔄 Durum Güncelle")
         guncel_id = st.number_input("Güncellenecek ID", min_value=1, step=1)
-        yeni_durum = st.selectbox("Yeni Sonuç Durumu Seçin", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "İptal"], key="update_status")
+        yeni_durum = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "İptal"])
         
         if st.button("Durumu Güncelle"):
             conn = db_baglan()
@@ -73,13 +86,11 @@ with sekme1:
             cur.execute("UPDATE kayitlar SET sonuc = ? WHERE id = ?", (yeni_durum, guncel_id))
             conn.commit()
             conn.close()
-            st.success(f"ID {guncel_id} başarıyla '{yeni_durum}' olarak güncellendi!")
+            st.success(f"ID {guncel_id} güncellendi!")
             st.rerun()
 
 # --- SEKME 2: LİSTE VE EXCEL ---
 with sekme2:
-    st.subheader("Veri Filtreleme ve Excel Aktarımı")
-    
     f1, f2, f3 = st.columns(3)
     with f1: ay_sec = st.selectbox("Ay", ["Hepsi"] + [str(i).zfill(2) for i in range(1, 13)])
     with f2: yil_sec = st.selectbox("Yıl", ["Hepsi"] + [str(i) for i in range(2024, 2030)])
@@ -95,32 +106,15 @@ with sekme2:
         if yil_sec != "Hepsi": df = df[df['tarih'].dt.strftime('%Y') == yil_sec]
         if isim_ara: df = df[df['ad_soyad'].str.contains(isim_ara, case=False, na=False)]
 
-        # --- EXCEL İNDİRME BUTONU ---
+        # Excel Butonu
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Ogrenci_Takip')
-            writer.close()
+            df.to_excel(writer, index=False, sheet_name='Takip_Listesi')
         
-        st.download_button(
-            label="📥 Listeyi Excel Olarak İndir",
-            data=buffer,
-            file_name=f"Rehab_Liste_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-            mime="application/vnd.ms-excel"
-        )
+        st.download_button(label="📥 Listeyi Excel Olarak İndir", data=buffer.getvalue(), 
+                           file_name="Rehab_Liste.xlsx", mime="application/vnd.ms-excel")
 
-        # Tabloyu Renkli Göster
-        styled_df = df.style.applymap(renk_ata, subset=['sonuc'])
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-        
-        # SİLME BÖLÜMÜ
-        with st.expander("🗑️ Kayıt Sil"):
-            sil_id = st.number_input("Silinecek ID seçin", min_value=1, step=1, key="delete_id")
-            if st.button("Kayıt Sil"):
-                conn = db_baglan()
-                cur = conn.cursor()
-                cur.execute(f"DELETE FROM kayitlar WHERE id={sil_id}")
-                conn.commit()
-                conn.close()
-                st.rerun()
+        # Renkli Tablo
+        st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True, hide_index=True)
     else:
-        st.warning("Görüntülenecek veri bulunamadı.")
+        st.warning("Veri bulunamadı.")
