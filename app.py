@@ -1,27 +1,18 @@
 import streamlit as st
 import pandas as pd
-import requests
-import json
+import sqlite3
 from datetime import datetime
 import io
 import urllib.parse
 
-# --- AYARLAR ---
-# 1. ADIMDA ALDIĞIN URL'Yİ BURAYA YAPIŞTIR:
-URL = "https://script.google.com/macros/s/AKfycbxbTnCrJpQQCHhrVb10LoZ29n9Ej2_sHnNW2eDhKSLXAIzqz71TvQdfmpLjiqlWoO4y5w/exec" 
-S_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
-CSV_URL = f"https://docs.google.com/spreadsheets/d/{S_ID}/gviz/tq?tqx=out:csv"
-
-st.set_page_config(page_title="Doğru Rakam Öğrenci Takip", layout="wide")
-
-# --- GİRİŞ PANELİ ---
+# --- 1. GİRİŞ PANELİ ---
 def giris_yap():
     if "giris_basarili" not in st.session_state:
         st.session_state["giris_basarili"] = False
     if not st.session_state["giris_basarili"]:
         st.title("🔒 Yetkili Girişi")
-        sifre = st.text_input("Lütfen sistem şifresini giriniz:", type="password")
-        if st.button("Giriş Yap"):
+        sifre = st.text_input("Şifre:", type="password")
+        if st.button("Sisteme Gir"):
             if sifre == "202026":
                 st.session_state["giris_basarili"] = True
                 st.rerun()
@@ -30,79 +21,80 @@ def giris_yap():
         return False
     return True
 
-def verileri_yukle():
-    try:
-        # Google Sheets'ten güncel veriyi çek
-        df = pd.read_csv(CSV_URL)
-        return df
-    except:
-        return pd.DataFrame()
+# --- 2. VERİTABANI ---
+def db_baglan():
+    conn = sqlite3.connect('rehab_merkezi.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS kayitlar 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, ad_soyad TEXT, yas_sinif TEXT, 
+                  degerlendirme TEXT, karar TEXT, sonuc TEXT, veli_adi TEXT, 
+                  tel TEXT, adres TEXT, tarih DATE)''')
+    conn.commit()
+    return conn
 
 def renk_ata(val):
-    color = 'white'
-    if val == 'Hastane Sürecinde': color = '#FFA500' 
-    elif val == 'RAM Sürecinde': color = '#1E90FF' 
-    elif val == 'İptal': color = '#FF4B4B' 
-    elif val == 'Kaydedildi': color = '#28A745' 
-    elif val == 'Beklemede': color = '#6c757d'
-    return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+    colors = {'Hastane Sürecinde': '#FFA500', 'RAM Sürecinde': '#1E90FF', 
+              'İptal': '#FF4B4B', 'Kaydedildi': '#28A745', 'Beklemede': '#6c757d'}
+    return f'background-color: {colors.get(val, "white")}; color: white; font-weight: bold'
 
 # --- ANA PROGRAM ---
+st.set_page_config(page_title="Rehabilitasyon Yönetim", layout="wide")
+
 if giris_yap():
-    st.sidebar.success("✅ Giriş Yapıldı")
-    if st.sidebar.button("Güvenli Çıkış"):
-        st.session_state["giris_basarili"] = False
-        st.rerun()
+    st.title("🏥 Rehabilitasyon Merkezi Paneli")
+    
+    # SEKMELER
+    tab1, tab2 = st.tabs(["📝 İşlemler", "📊 Veri Listesi"])
 
-    st.title("🏥 Doğru Rakam Öğrenci Yönetim Paneli")
-    sekme1, sekme2 = st.tabs(["➕ Yeni Kayıt", "📋 Liste & Excel"])
-
-    with sekme1:
-        st.subheader("Yeni Öğrenci Ekle")
-        with st.form("yeni_kayit", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
+    with tab1:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Yeni Kayıt")
+            with st.form("kayit_form"):
                 ad = st.text_input("Ad Soyad")
-                yas = st.text_input("Yaş - Sınıf")
-                veli = st.text_input("Veli Adı")
-            with col2:
-                tel = st.text_input("Telefon")
-                karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
-                sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
-            
-            deger = st.text_area("Değerlendirme")
-            adres = st.text_area("Adres")
-            tarih = datetime.now().strftime("%d/%m/%Y")
-            
-            if st.form_submit_button("Sisteme Kaydet"):
-                if ad:
-                    # Google Sheets'e veri gönder
-                    payload = {
-                        "id": datetime.now().strftime("%H%M%S"), 
-                        "ad": ad, "yas": yas, "deger": deger, "karar": karar,
-                        "sonuc": sonuc, "veli": veli, "tel": tel, "adres": adres, "tarih": tarih
-                    }
-                    try:
-                        response = requests.post(URL, data=json.dumps(payload))
-                        st.success(f"✅ {ad} başarıyla Google Sheets'e kaydedildi!")
-                        
-                        # WhatsApp Bildirimi
-                        mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n👤 *Ad:* {ad}\n📍 *Durum:* {sonuc}\n📅 *Tarih:* {tarih}"
-                        wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
-                        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer;">🟢 WhatsApp Grubuna Bildir</button></a>', unsafe_allow_html=True)
-                    except:
-                        st.error("❌ Kayıt sırasında hata oluştu. Lütfen Apps Script URL'sini kontrol edin.")
-
-    with sekme2:
-        st.subheader("📋 Kayıtlı Öğrenci Listesi")
-        df = verileri_yukle()
+                yas = st.text_input("Yaş/Sınıf")
+                durum = st.selectbox("Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
+                if st.form_submit_button("Kaydet"):
+                    if ad:
+                        conn = db_baglan()
+                        conn.execute("INSERT INTO kayitlar (ad_soyad, yas_sinif, sonuc, tarih) VALUES (?,?,?,?)",
+                                    (ad, yas, durum, datetime.now().date()))
+                        conn.commit()
+                        st.success("Kaydedildi!")
+                        st.rerun()
         
-        if not df.empty:
-            # Excel İndirme Butonu (Sütun ayırma sorunu düzeltildi)
-            csv_data = df.to_csv(index=False, sep=';').encode('utf-8-sig')
-            st.download_button(label="📥 Excel İndir (Sütunlar Ayrılmış)", data=csv_data, file_name="Ogrenci_Takip_Listesi.csv", mime="text/csv")
+        with c2:
+            st.subheader("Düzenle ve Sil")
+            # GÜNCELLEME
+            edit_id = st.number_input("İşlem Yapılacak ID", min_value=1, step=1)
+            yeni_s = st.selectbox("Yeni Durum Seç", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
+            if st.button("Durumu Güncelle"):
+                conn = db_baglan()
+                conn.execute("UPDATE kayitlar SET sonuc = ? WHERE id = ?", (yeni_s, edit_id))
+                conn.commit()
+                st.success("Güncellendi!")
+                st.rerun()
             
-            # Tabloyu Göster
-            st.dataframe(df.style.applymap(renk_ata, subset=['Sonuç']), use_container_width=True)
+            st.markdown("---")
+            # SİLME BUTONU (BURADA!)
+            if st.button("🔴 BU ID'Yİ SİSTEMDEN SİL"):
+                conn = db_baglan()
+                conn.execute("DELETE FROM kayitlar WHERE id = ?", (edit_id,))
+                conn.commit()
+                st.error(f"ID {edit_id} silindi!")
+                st.rerun()
+
+    with tab2:
+        # FİLTRELER VE LİSTE
+        conn = db_baglan()
+        df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
+        if not df.empty:
+            st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
+            
+            # EXCEL İNDİRME
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False)
+            st.download_button("📥 Excel İndir", buffer.getvalue(), "liste.xlsx")
         else:
-            st.info("Henüz kayıtlı veri yok veya Google Sheets yükleniyor...")
+            st.info("Kayıt yok.")
