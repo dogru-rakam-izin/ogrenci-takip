@@ -142,7 +142,7 @@ if giris_yap():
                         conn.commit()
                         payload_mhrs = {"form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, "sifre": m_sifre, "anne": m_anne, "baba": m_baba}
                         try:
-                            requests.post(https://script.google.com/macros/s/AKfycbzAWHpsFWK2t-rDiGio4SvgJoTgqXXT2j-GIIYckRD6zvoI7AIWfDCfyzuBezProuwghQ/exec, data=payload_mhrs)
+                            requests.post("https://script.google.com/macros/s/AKfycbzAWHpsFWK2t-rDiGio4SvgJoTgqXXT2j-GIIYckRD6zvoI7AIWfDCfyzuBezProuwghQ/exec", data=payload_mhrs)
                             st.success("✅ MHRS bilgileri hem sisteme hem tabloya işlendi!")
                         except:
                             st.warning("⚠️ Sadece sisteme kaydedildi.")
@@ -158,4 +158,5 @@ if giris_yap():
                     conn.execute("DELETE FROM mhrs_bilgileri WHERE id=?", (sil_m_id,))
                     conn.commit()
                     st.rerun()
+
 
