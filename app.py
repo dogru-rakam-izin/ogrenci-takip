@@ -107,3 +107,4 @@ if giris_yap():
             # Excel İndirme Butonu (Noktalı virgül ile sütunları ayırır)
             csv_data = df.to_csv(index=False, sep=';').encode('utf-8-sig')
             st.download_button(label="📥 Excel İndir (Sütunlar Ayrılmış)", data=csv_data, file_name="
+
