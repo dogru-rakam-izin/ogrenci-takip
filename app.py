@@ -6,7 +6,8 @@ from datetime import datetime
 import io
 import urllib.parse
 
-# --- GÜNCEL AYARLARINIZ ---
+# --- AYARLAR ---
+# 1. ADIMDA ALDIĞIN URL'Yİ BURAYA YAPIŞTIR:
 URL = "https://script.google.com/macros/s/AKfycbxbTnCrJpQQCHhrVb10LoZ29n9Ej2_sHnNW2eDhKSLXAIzqz71TvQdfmpLjiqlWoO4y5w/exec" 
 S_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{S_ID}/gviz/tq?tqx=out:csv"
@@ -19,7 +20,6 @@ def giris_yap():
         st.session_state["giris_basarili"] = False
     if not st.session_state["giris_basarili"]:
         st.title("🔒 Yetkili Girişi")
-        # Şifrenizi burada tanımladık
         sifre = st.text_input("Lütfen sistem şifresini giriniz:", type="password")
         if st.button("Giriş Yap"):
             if sifre == "202026":
@@ -32,8 +32,8 @@ def giris_yap():
 
 def verileri_yukle():
     try:
-        # Google Sheets'ten güncel veriyi çek (Cache'i temizlemek için random bir parametre ekliyoruz)
-        df = pd.read_csv(f"{CSV_URL}&cache={datetime.now().timestamp()}")
+        # Google Sheets'ten güncel veriyi çek
+        df = pd.read_csv(CSV_URL)
         return df
     except:
         return pd.DataFrame()
@@ -62,9 +62,9 @@ if giris_yap():
         with st.form("yeni_kayit", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                ad = st.text_input("Ad Soyad").upper()
+                ad = st.text_input("Ad Soyad")
                 yas = st.text_input("Yaş - Sınıf")
-                veli = st.text_input("Veli Adı").upper()
+                veli = st.text_input("Veli Adı")
             with col2:
                 tel = st.text_input("Telefon")
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
@@ -76,39 +76,33 @@ if giris_yap():
             
             if st.form_submit_button("Sisteme Kaydet"):
                 if ad:
-                    # Google Sheets'e veri gönderimi için paket hazırlığı
+                    # Google Sheets'e veri gönder
                     payload = {
                         "id": datetime.now().strftime("%H%M%S"), 
                         "ad": ad, "yas": yas, "deger": deger, "karar": karar,
                         "sonuc": sonuc, "veli": veli, "tel": tel, "adres": adres, "tarih": tarih
                     }
                     try:
-                        # Veriyi Apps Script URL'sine gönderiyoruz
                         response = requests.post(URL, data=json.dumps(payload))
                         st.success(f"✅ {ad} başarıyla Google Sheets'e kaydedildi!")
                         
-                        # WhatsApp Bildirimi Hazırlığı
+                        # WhatsApp Bildirimi
                         mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n👤 *Ad:* {ad}\n📍 *Durum:* {sonuc}\n📅 *Tarih:* {tarih}"
                         wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
                         st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer;">🟢 WhatsApp Grubuna Bildir</button></a>', unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"❌ Hata oluştu: {e}")
-                else:
-                    st.warning("Lütfen en azından 'Ad Soyad' alanını doldurun.")
+                    except:
+                        st.error("❌ Kayıt sırasında hata oluştu. Lütfen Apps Script URL'sini kontrol edin.")
 
     with sekme2:
         st.subheader("📋 Kayıtlı Öğrenci Listesi")
         df = verileri_yukle()
         
         if not df.empty:
-            # Sütun İsimlerini Düzeltme (Boşlukları temizle)
-            df.columns = [c.strip() for c in df.columns]
-            
-            # Excel İndirme Butonu (Noktalı virgül ile sütunları ayırır)
+            # Excel İndirme Butonu (Sütun ayırma sorunu düzeltildi)
             csv_data = df.to_csv(index=False, sep=';').encode('utf-8-sig')
             st.download_button(label="📥 Excel İndir (Sütunlar Ayrılmış)", data=csv_data, file_name="Ogrenci_Takip_Listesi.csv", mime="text/csv")
             
             # Tabloyu Göster
             st.dataframe(df.style.applymap(renk_ata, subset=['Sonuç']), use_container_width=True)
         else:
-            st.info("Henüz kayıtlı veri yok veya Google Sheets'ten veri çekilemiyor. Lütfen bir kayıt eklemeyi deneyin.")
+            st.info("Henüz kayıtlı veri yok veya Google Sheets yükleniyor...")
