@@ -19,7 +19,6 @@ def giris_yap():
         st.session_state["giris_basarili"] = False
     if not st.session_state["giris_basarili"]:
         st.title("🔒 Yetkili Girişi")
-        # Şifrenizi burada tanımladık
         sifre = st.text_input("Lütfen sistem şifresini giriniz:", type="password")
         if st.button("Giriş Yap"):
             if sifre == "202026":
@@ -32,7 +31,7 @@ def giris_yap():
 
 def verileri_yukle():
     try:
-        # Google Sheets'ten güncel veriyi çek (Cache'i temizlemek için random bir parametre ekliyoruz)
+        # Cache temizleme için timestamp ekliyoruz
         df = pd.read_csv(f"{CSV_URL}&cache={datetime.now().timestamp()}")
         return df
     except:
@@ -76,35 +75,37 @@ if giris_yap():
             
             if st.form_submit_button("Sisteme Kaydet"):
                 if ad:
-                    # Google Sheets'e veri gönderimi için paket hazırlığı
                     payload = {
                         "id": datetime.now().strftime("%H%M%S"), 
                         "ad": ad, "yas": yas, "deger": deger, "karar": karar,
                         "sonuc": sonuc, "veli": veli, "tel": tel, "adres": adres, "tarih": tarih
                     }
                     try:
-                        # Veriyi Apps Script URL'sine gönderiyoruz
                         response = requests.post(URL, data=json.dumps(payload))
-                        st.success(f"✅ {ad} başarıyla Google Sheets'e kaydedildi!")
+                        st.success(f"✅ {ad} başarıyla kaydedildi!")
                         
-                        # WhatsApp Bildirimi Hazırlığı
                         mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n👤 *Ad:* {ad}\n📍 *Durum:* {sonuc}\n📅 *Tarih:* {tarih}"
                         wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
                         st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer;">🟢 WhatsApp Grubuna Bildir</button></a>', unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"❌ Hata oluştu: {e}")
-                else:
-                    st.warning("Lütfen en azından 'Ad Soyad' alanını doldurun.")
+                        st.error(f"❌ Hata: {e}")
 
     with sekme2:
         st.subheader("📋 Kayıtlı Öğrenci Listesi")
         df = verileri_yukle()
         
         if not df.empty:
-            # Sütun İsimlerini Düzeltme (Boşlukları temizle)
             df.columns = [c.strip() for c in df.columns]
             
-            # Excel İndirme Butonu (Noktalı virgül ile sütunları ayırır)
+            # Hataya sebep olan kısım düzeltildi:
             csv_data = df.to_csv(index=False, sep=';').encode('utf-8-sig')
-            st.download_button(label="📥 Excel İndir (Sütunlar Ayrılmış)", data=csv_data, file_name="
-
+            st.download_button(
+                label="📥 Excel İndir (Sütunlar Ayrılmış)", 
+                data=csv_data, 
+                file_name="Ogrenci_Takip_Listesi.csv", 
+                mime="text/csv"
+            )
+            
+            st.dataframe(df.style.applymap(renk_ata, subset=['Sonuç']), use_container_width=True)
+        else:
+            st.info("Henüz kayıtlı veri yok.")
