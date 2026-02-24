@@ -26,7 +26,6 @@ def giris_yap():
 def db_baglan():
     conn = sqlite3.connect('rehab_merkezi.db')
     c = conn.cursor()
-    # Adres sütunu dahil tablo yapısı
     c.execute('''CREATE TABLE IF NOT EXISTS kayitlar 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, ad_soyad TEXT, yas_sinif TEXT, 
                   degerlendirme TEXT, karar TEXT, sonuc TEXT, veli_adi TEXT, 
@@ -42,10 +41,11 @@ def renk_ata(val):
 # --- ANA PROGRAM ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
+# Güncel Google Script URL'niz
 GOOGLE_URL = "https://script.google.com/macros/s/AKfycbV_uZh3duC_if_sgs3R1aAz09DaPqi97nvEOpFdqVhQwIIjJMCma3Kml4NZNoJ_AzEIQ/exec"
 
 if giris_yap():
-    st.sidebar.success("✅ Sisteme Giriş Yapıldı")
+    st.sidebar.success("✅ Giriş Yapıldı")
     if st.sidebar.button("Güvenli Çıkış"):
         st.session_state["giris_basarili"] = False
         st.rerun()
@@ -56,7 +56,7 @@ if giris_yap():
     with tab1:
         col1, col2 = st.columns(2)
         
-        # --- YENİ KAYIT ---
+        # --- YENİ KAYIT FORMU ---
         with col1:
             st.subheader("📝 Yeni Öğrenci Ekle")
             with st.form("yeni_form", clear_on_submit=True):
@@ -64,7 +64,7 @@ if giris_yap():
                 yas = st.text_input("Yaş - Sınıf")
                 veli = st.text_input("Veli Adı")
                 tel = st.text_input("Telefon")
-                adres = st.text_area("Adres") # ADRES ALANI EKLENDİ
+                adres = st.text_area("Adres")
                 deger = st.text_area("Değerlendirme")
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
                 sonuc = st.selectbox("Sonuç", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
@@ -78,7 +78,6 @@ if giris_yap():
                         conn.commit()
                         conn.close()
                         
-                        # Google Sheets Payload (Adres eklendi)
                         payload = {
                             "tarih": tarih_str, "ad": ad, "yas": yas, "veli": veli, 
                             "tel": tel, "adres": adres, "deger": deger, "karar": karar, "sonuc": sonuc
@@ -87,13 +86,58 @@ if giris_yap():
                             requests.post(GOOGLE_URL, data=payload, timeout=10)
                             st.success(f"✅ {ad} başarıyla kaydedildi!")
                         except:
-                            st.warning("⚠️ Google Tabloya gönderilemedi.")
+                            st.warning("⚠️ Google Tabloya gönderilemedi ama sisteme kaydedildi.")
                         st.rerun()
 
-        # --- GÜNCELLEME VE SİLME ---
+        # --- GÜNCELLEME VE SİLME FORMU ---
         with col2:
             st.subheader("⚙️ Düzenle / Sil")
             
-            with st.expander("🔄 Durum Güncelle"):
+            with st.expander("🔄 Durum Güncelle", expanded=True):
                 g_id = st.number_input("ID Girin", min_value=1, step=1, key="upd_id")
-                yeni_s = st.selectbox("Yeni
+                yeni_s = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"], key="upd_s")
+                if st.button("Güncellemeyi Kaydet"):
+                    conn = db_baglan()
+                    cur = conn.cursor()
+                    cur.execute("SELECT ad_soyad, yas_sinif, veli_adi, tel, adres, degerlendirme, karar FROM kayitlar WHERE id=?", (g_id,))
+                    o = cur.fetchone()
+                    if o:
+                        conn.execute("UPDATE kayitlar SET sonuc=? WHERE id=?", (yeni_s, g_id))
+                        conn.commit()
+                        payload = {
+                            "tarih": str(datetime.now().date()) + " (GÜNCEL)",
+                            "ad": o[0], "yas": o[1], "veli": o[2], "tel": o[3],
+                            "adres": o[4], "deger": o[5], "karar": o[6], "sonuc": yeni_s
+                        }
+                        try:
+                            requests.post(GOOGLE_URL, data=payload)
+                            st.success(f"ID {g_id} durumu güncellendi!")
+                        except:
+                            st.warning("Tabloya gönderilemedi.")
+                        conn.close()
+                        st.rerun()
+                    else:
+                        st.error("❌ Bu ID'ye sahip öğrenci bulunamadı.")
+
+            with st.expander("🗑️ Kayıt Sil"):
+                sil_id = st.number_input("Silinecek ID", min_value=1, step=1, key="del_id")
+                if st.button("🔴 SİL"):
+                    conn = db_baglan()
+                    conn.execute("DELETE FROM kayitlar WHERE id=?", (sil_id,))
+                    conn.commit()
+                    conn.close()
+                    st.error(f"ID {sil_id} silindi!")
+                    st.rerun()
+
+    with tab2:
+        conn = db_baglan()
+        df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
+        conn.close()
+        if not df.empty:
+            st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False)
+            st.download_button("📥 Excel İndir", buffer.getvalue(), "Rehab_Liste.xlsx")
+        else:
+            st.info("Henüz kayıtlı öğrenci yok.")
