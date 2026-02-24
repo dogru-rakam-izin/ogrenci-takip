@@ -14,7 +14,7 @@ def giris_yap():
         st.title("🔒 Yetkili Girişi")
         sifre = st.text_input("Lütfen sistem şifresini giriniz:", type="password")
         if st.button("Giriş Yap"):
-            if sifre == "202026": # Şifreniz
+            if sifre == "202026":
                 st.session_state["giris_basarili"] = True
                 st.rerun()
             else:
@@ -54,7 +54,6 @@ if giris_yap():
     with tab1:
         col1, col2 = st.columns(2)
         
-        # SOL TARAF: YENİ KAYIT
         with col1:
             st.subheader("Yeni Öğrenci Ekle")
             with st.form("yeni_kayit", clear_on_submit=True):
@@ -62,6 +61,7 @@ if giris_yap():
                 yas = st.text_input("Yaş - Sınıf")
                 veli = st.text_input("Veli Adı")
                 tel = st.text_input("Telefon")
+                deger = st.text_area("Değerlendirme") # EKSİK OLAN BÖLÜM BURASIYDI
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
                 sonuc = st.selectbox("Sonuç Durumu", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
                 
@@ -70,86 +70,50 @@ if giris_yap():
                         # 1. Kendi Veritabanına Kaydet (SQLite)
                         conn = db_baglan()
                         cur = conn.cursor()
-                        cur.execute("INSERT INTO kayitlar (ad_soyad, yas_sinif, karar, sonuc, veli_adi, tel, tarih) VALUES (?,?,?,?,?,?,?)",
-                                    (ad, yas, karar, sonuc, veli, tel, datetime.now().date()))
+                        cur.execute("INSERT INTO kayitlar (ad_soyad, yas_sinif, degerlendirme, karar, sonuc, veli_adi, tel, tarih) VALUES (?,?,?,?,?,?,?,?)",
+                                    (ad, yas, deger, karar, sonuc, veli, tel, datetime.now().date()))
                         conn.commit()
                         conn.close()
                         
-                        # 2. Google Sheets'e Gönder (Yeni Linkiniz)
+                        # 2. Google Sheets'e Gönder
                         google_url = "https://script.google.com/macros/s/AKfycbz3kGhyk15B_o0qTm-mQoI7GLIgMaLo4Z2ElHM5RwE9ta-1zm_6LL83pied4zrQrx-QBA/exec"
                         payload = {
                             "ad": ad, 
                             "yas": yas, 
                             "veli": veli, 
                             "tel": tel, 
+                            "deger": deger, # Değerlendirme eklendi
                             "karar": karar, 
                             "sonuc": sonuc,
                             "tarih": str(datetime.now().date())
                         }
                         try:
-                            # Google Script doPost fonksiyonuna veri yollar
                             requests.post(google_url, data=payload, timeout=10)
-                            st.success(f"✅ {ad} başarıyla hem sisteme hem Google Sheets'e kaydedildi!")
+                            st.success(f"✅ {ad} kaydedildi!")
                         except:
-                            st.warning("⚠️ Veri sisteme kaydedildi ancak Google Sheets bağlantısında bir sorun oluştu.")
+                            st.warning("⚠️ Google Sheets'e gönderilemedi ama sisteme kaydedildi.")
                         
-                        # WhatsApp Paylaşım Butonu
-                        mesaj = f"📢 *YENİ ÖĞRENCİ KAYDI*\n👤 *Ad:* {ad}\n📍 *Durum:* {sonuc}"
-                        wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
-                        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer;">🟢 WhatsApp Grubuna Bildir</button></a>', unsafe_allow_html=True)
+                        m = f"📢 *YENİ KAYIT*\n👤 *Ad:* {ad}\n📍 *Durum:* {sonuc}"
+                        st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(m)}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%; cursor:pointer;">🟢 WhatsApp Bildir</button></a>', unsafe_allow_html=True)
 
-        # SAĞ TARAF: GÜNCELLEME VE SİLME
         with col2:
             st.subheader("🔄 Kayıt Düzenle / Sil")
-            
-            # Güncelleme
-            with st.expander("📝 Durum Güncelle"):
-                g_id = st.number_input("Güncellenecek ID", min_value=1, step=1)
-                g_durum = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"], key="update_status")
-                if st.button("Durumu Güncelle"):
-                    conn = db_baglan()
-                    conn.execute("UPDATE kayitlar SET sonuc = ? WHERE id = ?", (g_durum, g_id))
-                    conn.commit()
-                    st.success(f"ID {g_id} güncellendi!")
-                    st.rerun()
-
-            # Silme
             with st.expander("🗑️ KAYIT SİL"):
-                st.warning("⚠️ Dikkat: Silinen kayıt geri getirilemez!")
                 sil_id = st.number_input("Silinecek Öğrenci ID'si", min_value=1, step=1, key="delete_id")
-                if st.button("🔴 KAYDI KALICI OLARAK SİL"):
+                if st.button("🔴 KALICI OLARAK SİL"):
                     conn = db_baglan()
                     conn.execute("DELETE FROM kayitlar WHERE id=?", (sil_id,))
                     conn.commit()
-                    st.error(f"ID {sil_id} sistemden silindi!")
+                    st.error(f"ID {sil_id} silindi!")
                     st.rerun()
 
     with tab2:
-        # LİSTELEME VE FİLTRELEME
         conn = db_baglan()
         df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
         conn.close()
-
         if not df.empty:
-            st.subheader("📋 Kayıtlı Öğrenci Listesi")
-            
-            # Filtreler
-            f1, f2 = st.columns(2)
-            with f1: arama = st.text_input("🔍 İsimle Ara")
-            with f2: durum_filtre = st.multiselect("Duruma Göre Filtrele", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
-            
-            if arama:
-                df = df[df['ad_soyad'].str.contains(arama, case=False, na=False)]
-            if durum_filtre:
-                df = df[df['sonuc'].isin(durum_filtre)]
-
-            # Excel İndirme
+            st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Rehabilitasyon_Takip')
-            st.download_button("📥 Listeyi Excel Olarak İndir", buffer.getvalue(), "Rehab_Liste.xlsx")
-
-            # Renkli Tablo
-            st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
-        else:
-            st.info("Henüz kayıtlı veri bulunmamaktadır.")
+                df.to_excel(writer, index=False)
+            st.download_button("📥 Excel İndir", buffer.getvalue(), "Rehab_Liste.xlsx")
