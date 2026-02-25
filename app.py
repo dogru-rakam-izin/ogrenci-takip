@@ -43,7 +43,7 @@ def renk_ata(val):
 # --- AYARLAR ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
-# Yeni aldığın Google Script Linki
+# Google Script URL
 GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwu28U2gXrEypbRE2PgBEaq6AHnHnLv0j5tqAyiksk8An4XyA0REdEjAFakTIEsoLJ-uQ/exec"
 
 if giris_yap():
@@ -85,4 +85,82 @@ if giris_yap():
             st.subheader("⚙️ Düzenle / Sil")
             with st.expander("🔄 Durum Güncelle"):
                 g_id = st.number_input("Güncellenecek ID", min_value=1, step=1)
-                yeni_s = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İpt
+                yeni_s = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
+                if st.button("Durumu Güncelle"):
+                    conn = db_baglan()
+                    cur = conn.cursor()
+                    cur.execute("SELECT ad_soyad, yas_sinif, veli_adi, tel, adres, degerlendirme, karar FROM kayitlar WHERE id=?", (g_id,))
+                    o = cur.fetchone()
+                    if o:
+                        conn.execute("UPDATE kayitlar SET sonuc=? WHERE id=?", (yeni_s, g_id))
+                        conn.commit()
+                        conn.close()
+                        payload = {"form_tipi": "kayit", "tarih": str(datetime.now().date()) + " (GÜNCEL)", "ad": o[0], "yas": o[1], "veli": o[2], "tel": o[3], "adres": o[4], "deger": o[5], "karar": o[6], "sonuc": yeni_s}
+                        requests.post(GOOGLE_URL, data=payload)
+                        st.success("Durum güncellendi!")
+                        st.rerun()
+                    else:
+                        st.error("❌ ID bulunamadı!")
+
+            with st.expander("🗑️ Kayıt Sil"):
+                sil_id = st.number_input("Silinecek ID", min_value=1, step=1)
+                if st.button("🔴 SİL"):
+                    conn = db_baglan()
+                    conn.execute("DELETE FROM kayitlar WHERE id=?", (sil_id,))
+                    conn.commit()
+                    conn.close()
+                    st.error("Kayıt silindi!")
+                    st.rerun()
+
+    # --- TAB 2: LİSTE ---
+    with tab2:
+        conn = db_baglan()
+        df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
+        conn.close()
+        if not df.empty:
+            st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False)
+            st.download_button("📥 Excel İndir", buffer.getvalue(), "Rehab_Liste.xlsx")
+        else:
+            st.info("Henüz kayıt yok.")
+
+    # --- TAB 3: MHRS BİLGİLERİ ---
+    with tab3:
+        st.subheader("🏥 MHRS Kayıt Sistemi")
+        m_col1, m_col2 = st.columns([1, 2])
+        with m_col1:
+            with st.form("mhrs_form", clear_on_submit=True):
+                m_ad = st.text_input("Öğrenci Ad Soyad")
+                m_tc = st.text_input("TC No")
+                m_sifre = st.text_input("MHRS Şifre")
+                m_anne = st.text_input("Anne Adı")
+                m_baba = st.text_input("Baba Adı")
+                if st.form_submit_button("MHRS Kaydet"):
+                    if m_ad and m_tc:
+                        conn = db_baglan()
+                        conn.execute("INSERT INTO mhrs_bilgileri (ad_soyad, tc_no, sifre, anne_adi, baba_adi) VALUES (?,?,?,?,?)", (m_ad, m_tc, m_sifre, m_anne, m_baba))
+                        conn.commit()
+                        conn.close()
+                        payload_mhrs = {"form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, "sifre": m_sifre, "anne": m_anne, "baba": m_baba}
+                        try:
+                            requests.post(GOOGLE_URL, data=payload_mhrs)
+                            st.success("✅ MHRS bilgileri tabloya işlendi!")
+                        except:
+                            st.error("❌ Tabloya gönderilemedi!")
+                        st.rerun()
+
+        with m_col2:
+            conn = db_baglan()
+            mhrs_df = pd.read_sql_query("SELECT * FROM mhrs_bilgileri", conn)
+            conn.close()
+            if not mhrs_df.empty:
+                st.dataframe(mhrs_df, use_container_width=True)
+                sil_m_id = st.number_input("Silinecek MHRS ID", min_value=1, step=1, key="m_sil")
+                if st.button("Seçili MHRS Kaydını Sil"):
+                    conn = db_baglan()
+                    conn.execute("DELETE FROM mhrs_bilgileri WHERE id=?", (sil_m_id,))
+                    conn.commit()
+                    conn.close()
+                    st.rerun()
