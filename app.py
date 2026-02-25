@@ -3,7 +3,6 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 import io
-import urllib.parse
 import requests
 
 # --- 1. GİRİŞ PANELİ ---
@@ -46,8 +45,8 @@ def renk_ata(val):
 # --- ANA PROGRAM ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
-# Senin Güncel Google Script Linkin
-GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxjWapbzdegiJARtJSGBo8emcH--A9nhe4T1LtKloTVw8mZlSfUq4o-zc-aXkvk8diHIw/exec"
+# En son aldığınız "Herkes" yetkili Google Script linkini buraya yazın
+GOOGLE_URL = "https://script.google.com/macros/s/AKfycbzAWHpsFWK2t-rDiGio4SvgJoTgqXXT2j-GIIYckRD6zvoI7AIWfDCfyzuBezProuwghQ/exec"
 
 if giris_yap():
     tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Excel", "🏥 MHRS Bilgileri"])
@@ -74,6 +73,7 @@ if giris_yap():
                         conn.execute("INSERT INTO kayitlar (ad_soyad, yas_sinif, degerlendirme, karar, sonuc, veli_adi, tel, adres, tarih) VALUES (?,?,?,?,?,?,?,?,?)",
                                     (ad, yas, deger, karar, sonuc, veli, tel, adres, tarih_str))
                         conn.commit()
+                        conn.close()
                         
                         payload = {"form_tipi": "kayit", "tarih": tarih_str, "ad": ad, "yas": yas, "veli": veli, "tel": tel, "adres": adres, "deger": deger, "karar": karar, "sonuc": sonuc}
                         try:
@@ -96,10 +96,13 @@ if giris_yap():
                     if o:
                         conn.execute("UPDATE kayitlar SET sonuc=? WHERE id=?", (yeni_s, g_id))
                         conn.commit()
+                        conn.close()
                         payload = {"form_tipi": "kayit", "tarih": str(datetime.now().date()) + " (GÜNCEL)", "ad": o[0], "yas": o[1], "veli": o[2], "tel": o[3], "adres": o[4], "deger": o[5], "karar": o[6], "sonuc": yeni_s}
                         requests.post(GOOGLE_URL, data=payload)
                         st.success("Güncellendi!")
                         st.rerun()
+                    else:
+                        st.error("ID bulunamadı!")
 
             with st.expander("🗑️ Kayıt Sil"):
                 sil_id = st.number_input("Silinecek ID", min_value=1, step=1)
@@ -107,6 +110,7 @@ if giris_yap():
                     conn = db_baglan()
                     conn.execute("DELETE FROM kayitlar WHERE id=?", (sil_id,))
                     conn.commit()
+                    conn.close()
                     st.error("Silindi!")
                     st.rerun()
 
@@ -114,6 +118,7 @@ if giris_yap():
     with tab2:
         conn = db_baglan()
         df = pd.read_sql_query("SELECT * FROM kayitlar", conn)
+        conn.close()
         if not df.empty:
             st.dataframe(df.style.applymap(renk_ata, subset=['sonuc']), use_container_width=True)
             buffer = io.BytesIO()
@@ -140,9 +145,11 @@ if giris_yap():
                         conn = db_baglan()
                         conn.execute("INSERT INTO mhrs_bilgileri (ad_soyad, tc_no, sifre, anne_adi, baba_adi) VALUES (?,?,?,?,?)", (m_ad, m_tc, m_sifre, m_anne, m_baba))
                         conn.commit()
+                        conn.close()
                         payload_mhrs = {"form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, "sifre": m_sifre, "anne": m_anne, "baba": m_baba}
                         try:
-                            requests.post("https://script.google.com/macros/s/AKfycbzAWHpsFWK2t-rDiGio4SvgJoTgqXXT2j-GIIYckRD6zvoI7AIWfDCfyzuBezProuwghQ/exec", data=payload_mhrs)
+                            # Sabit GOOGLE_URL kullanıldı
+                            requests.post(GOOGLE_URL, data=payload_mhrs)
                             st.success("✅ MHRS bilgileri hem sisteme hem tabloya işlendi!")
                         except:
                             st.warning("⚠️ Sadece sisteme kaydedildi.")
@@ -151,12 +158,13 @@ if giris_yap():
         with m_col2:
             conn = db_baglan()
             mhrs_df = pd.read_sql_query("SELECT * FROM mhrs_bilgileri", conn)
+            conn.close()
             if not mhrs_df.empty:
                 st.dataframe(mhrs_df, use_container_width=True)
                 sil_m_id = st.number_input("Silinecek MHRS ID", min_value=1, step=1, key="m_sil")
                 if st.button("Seçili MHRS Kaydını Sil"):
+                    conn = db_baglan()
                     conn.execute("DELETE FROM mhrs_bilgileri WHERE id=?", (sil_m_id,))
                     conn.commit()
+                    conn.close()
                     st.rerun()
-
-
