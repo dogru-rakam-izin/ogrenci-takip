@@ -24,14 +24,13 @@ def giris_yap():
 # --- 2. AYARLAR VE LİNKLER ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
-# Sizin Tablo ID'niz
+# Sizin Tablo Bilgileriniz
 SHEET_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
-# Google Sheets'ten veri çekme linkleri
+# Google Sheets'ten veri çekme linkleri (CSV formatında)
 KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kayıtlar"
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
-
-# YENİ ALDIĞINIZ GOOGLE SCRIPT URL'Sİ
-GOOGLE_URL = "https://script.google.com/macros/library/d/1tkZiEdSEVxawnSj7kUqXaKplXdSbNhxSswTgXXs1oRVfEk5yGiu7DvlL/7"
+# Veri gönderme (Yeni Aldığınız Script URL)
+GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwT6l8hXtguAt6xNS2awOV5T8tM7ihi60vnNVCQfjtDq8fiE_KIg9s5fXvztBmT7WIZVg/exec"
 
 def renk_ata(val):
     colors = {'Hastane Sürecinde': '#FFA500', 'RAM Sürecinde': '#1E90FF', 
@@ -41,7 +40,7 @@ def renk_ata(val):
 if giris_yap():
     tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Excel", "🏥 MHRS Bilgileri"])
 
-    # --- TAB 1: YENİ ÖĞRENCİ KAYDI ---
+    # --- TAB 1: YENİ KAYIT VE GÜNCELLEME ---
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -58,7 +57,6 @@ if giris_yap():
                 
                 if st.form_submit_button("💾 Kaydet"):
                     if ad:
-                        # form_tipi: "kayit" -> Bu veriyi "Kayıtlar" sayfasına gönderir
                         payload = {
                             "form_tipi": "kayit", "tarih": str(datetime.now().date()), 
                             "ad": ad, "yas": yas, "veli": veli, "tel": tel, 
@@ -66,31 +64,57 @@ if giris_yap():
                         }
                         try:
                             requests.post(GOOGLE_URL, data=payload, timeout=10)
-                            st.success(f"✅ {ad} Kayıtlara eklendi!")
+                            st.success(f"✅ {ad} başarıyla eklendi!")
                             st.cache_data.clear()
                         except:
                             st.error("❌ Veri gönderilemedi!")
 
+        with col2:
+            st.subheader("🔄 Durum Güncelle")
+            st.info("Not: Bu işlem mevcut kaydın sonucunu değiştirir.")
+            with st.form("guncelle_form"):
+                g_ad = st.text_input("Güncellenecek Öğrenci Ad Soyad")
+                yeni_s = st.selectbox("Yeni Durum Seçin", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
+                if st.form_submit_button("Güncellemeyi Gönder"):
+                    payload = {"form_tipi": "kayit", "ad": g_ad, "sonuc": yeni_s, "tarih": str(datetime.now().date()) + " (GÜNCEL)"}
+                    requests.post(GOOGLE_URL, data=payload)
+                    st.success("Güncelleme isteği gönderildi!")
+                    st.cache_data.clear()
+
     # --- TAB 2: ÖĞRENCİ LİSTESİ ---
     with tab2:
         try:
+            # Google Sheets'ten veriyi oku
             df = pd.read_csv(KAYITLAR_CSV)
             if not df.empty:
-                st.dataframe(df.style.applymap(renk_ata, subset=['Sonuç'] if 'Sonuç' in df.columns else []), use_container_width=True)
+                # Sütun isimlerini temizle
+                df.columns = df.columns.str.strip()
+                
+                # Tabloyu Göster
+                sonuc_col = 'Sonuç' if 'Sonuç' in df.columns else None
+                if sonuc_col:
+                    st.dataframe(df.style.applymap(renk_ata, subset=[sonuc_col]), use_container_width=True)
+                else:
+                    st.dataframe(df, use_container_width=True)
                 
                 # WhatsApp Paylaşım
                 st.markdown("---")
                 st.subheader("📲 WhatsApp ile Paylaş")
-                secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
-                if st.button("🟢 WhatsApp Mesajı Hazırla"):
-                    satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
-                    mesaj = f"*Öğrenci Bilgisi*\n👤 *İsim:* {satir['Ad Soyad']}\n📋 *Durum:* {satir['Sonuç']}\n👨‍👩‍👦 *Veli:* {satir['Veli Adı']}"
-                    wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
-                    st.markdown(f'[Mesajı Göndermek İçin Buraya Tıklayın]({wa_link})')
+                if 'Ad Soyad' in df.columns:
+                    secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
+                    if st.button("🟢 WhatsApp Mesajı Hazırla"):
+                        satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
+                        # Dinamik sütun kontrolü
+                        veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
+                        durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
+                        
+                        mesaj = f"*Öğrenci Bilgisi*\n👤 *İsim:* {secilen_ogrenci}\n📋 *Durum:* {durum_bilgisi}\n👨‍👩‍👦 *Veli:* {veli_ismi}"
+                        wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
+                        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">WhatsApp ile Gönder</button></a>', unsafe_allow_html=True)
             else:
-                st.info("Kayıtlar sayfasında veri bulunamadı.")
-        except:
-            st.error("⚠️ Veriler yüklenemedi. Sayfa isminin 'Kayıtlar' olduğundan emin olun.")
+                st.info("Kayıtlar sayfasında henüz veri yok.")
+        except Exception as e:
+            st.error(f"⚠️ Veriler yüklenemedi: {e}")
 
     # --- TAB 3: MHRS BİLGİLERİ ---
     with tab3:
@@ -106,7 +130,6 @@ if giris_yap():
                 
                 if st.form_submit_button("🏥 MHRS Kaydet"):
                     if m_ad:
-                        # form_tipi: "mhrs" -> Bu veriyi "MHRS" sayfasına gönderir
                         payload_mhrs = {
                             "form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, 
                             "sifre": m_sifre, "anne": m_anne, "baba": m_baba
@@ -127,6 +150,4 @@ if giris_yap():
                 else:
                     st.info("MHRS sayfasında henüz veri yok.")
             except:
-                st.error("⚠️ MHRS verileri okunamadı. Sayfa isminin 'MHRS' olduğundan emin olun.")
-
-
+                st.info("MHRS verileri henüz yüklenmedi.")
