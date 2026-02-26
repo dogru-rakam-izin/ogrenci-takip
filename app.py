@@ -27,7 +27,7 @@ st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 # Sizin Tablo Bilgileriniz
 SHEET_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
 # Google Sheets'ten veri çekme linkleri (CSV formatında)
-KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kayıtlar"
+KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kay%C4%B1tlar"
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
 # Veri gönderme (Yeni Aldığınız Script URL)
 GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwT6l8hXtguAt6xNS2awOV5T8tM7ihi60vnNVCQfjtDq8fiE_KIg9s5fXvztBmT7WIZVg/exec"
@@ -151,3 +151,4 @@ if giris_yap():
                     st.info("MHRS sayfasında henüz veri yok.")
             except:
                 st.info("MHRS verileri henüz yüklenmedi.")
+
