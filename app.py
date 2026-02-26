@@ -84,9 +84,20 @@ if giris_yap():
     # --- TAB 2: ÖĞRENCİ LİSTESİ ---
     with tab2:
         try:
-            # Google Sheets'ten veriyi oku
+            # Veriyi çek
             df = pd.read_csv(KAYITLAR_CSV)
+            
             if not df.empty:
+                # 1. TEMİZLİK: Tamamen boş olan satır ve sütunları kaldır
+                df = df.dropna(how='all', axis=0) # Boş satırlar
+                df = df.dropna(how='all', axis=1) # Boş sütunlar
+                
+                # 2. TEMİZLİK: "Unnamed" sütunları filtrele
+                df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+                
+                # 3. TEMİZLİK: None veya NaN yazan yerleri boşlukla değiştir
+                df = df.fillna("")
+                
                 # Sütun isimlerini temizle
                 df.columns = df.columns.str.strip()
                 
@@ -151,4 +162,5 @@ if giris_yap():
                     st.info("MHRS sayfasında henüz veri yok.")
             except:
                 st.info("MHRS verileri henüz yüklenmedi.")
+
 
