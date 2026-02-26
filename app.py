@@ -24,13 +24,14 @@ def giris_yap():
 # --- 2. AYARLAR VE LİNKLER ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
-# Sizin Tablo Bilgileriniz
+# Sizin Tablo ID'niz
 SHEET_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
-# Google Sheets'ten veri çekme linkleri (CSV formatında)
+# Google Sheets'ten veri çekme linkleri
 KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kayıtlar"
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
-# Veri gönderme (Script) linki
-GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxMcp8FZELOmiAPHA4TJz7N5rdW0e77ZkA79QVAvKPHVzkJPiFOVX6QTmgGVinBkn4jeA/exec"
+
+# YENİ ALDIĞINIZ GOOGLE SCRIPT URL'Sİ
+GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwT6l8hXtguAt6xNS2awOV5T8tM7ihi60vnNVCQfjtDq8fiE_KIg9s5fXvztBmT7WIZVg/exec"
 
 def renk_ata(val):
     colors = {'Hastane Sürecinde': '#FFA500', 'RAM Sürecinde': '#1E90FF', 
@@ -40,7 +41,7 @@ def renk_ata(val):
 if giris_yap():
     tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Excel", "🏥 MHRS Bilgileri"])
 
-    # --- TAB 1: YENİ KAYIT VE GÜNCELLEME ---
+    # --- TAB 1: YENİ ÖĞRENCİ KAYDI ---
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -57,6 +58,7 @@ if giris_yap():
                 
                 if st.form_submit_button("💾 Kaydet"):
                     if ad:
+                        # form_tipi: "kayit" -> Bu veriyi "Kayıtlar" sayfasına gönderir
                         payload = {
                             "form_tipi": "kayit", "tarih": str(datetime.now().date()), 
                             "ad": ad, "yas": yas, "veli": veli, "tel": tel, 
@@ -64,26 +66,14 @@ if giris_yap():
                         }
                         try:
                             requests.post(GOOGLE_URL, data=payload, timeout=10)
-                            st.success(f"✅ {ad} başarıyla eklendi!")
+                            st.success(f"✅ {ad} Kayıtlara eklendi!")
                             st.cache_data.clear()
                         except:
                             st.error("❌ Veri gönderilemedi!")
 
-        with col2:
-            st.subheader("🔄 Durum Güncelle")
-            with st.expander("Öğrenci Durumunu Değiştir"):
-                st.info("Not: Güncelleme yapmak için önce Liste sekmesinden güncel verileri kontrol edin.")
-                g_ad = st.text_input("Güncellenecek Öğrenci Ad Soyad")
-                yeni_s = st.selectbox("Yeni Durum Seçin", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
-                if st.button("Güncellemeyi Gönder"):
-                    payload = {"form_tipi": "kayit", "ad": g_ad, "sonuc": yeni_s, "tarih": str(datetime.now().date()) + " (GÜNCEL)"}
-                    requests.post(GOOGLE_URL, data=payload)
-                    st.success("Güncelleme isteği gönderildi!")
-
-    # --- TAB 2: LİSTE VE WHATSAPP ---
+    # --- TAB 2: ÖĞRENCİ LİSTESİ ---
     with tab2:
         try:
-            # Google Sheets'ten veriyi oku
             df = pd.read_csv(KAYITLAR_CSV)
             if not df.empty:
                 st.dataframe(df.style.applymap(renk_ata, subset=['Sonuç'] if 'Sonuç' in df.columns else []), use_container_width=True)
@@ -94,20 +84,47 @@ if giris_yap():
                 secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
                 if st.button("🟢 WhatsApp Mesajı Hazırla"):
                     satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
-                    mesaj = f"*Öğrenci Bilgisi*\n👤 *İsim:* {satir['Ad Soyad']}\n📋 *Durum:* {satir['Sonuç']}\n📞 *Tel:* {satir['Telefon']}"
+                    mesaj = f"*Öğrenci Bilgisi*\n👤 *İsim:* {satir['Ad Soyad']}\n📋 *Durum:* {satir['Sonuç']}\n👨‍👩‍👦 *Veli:* {satir['Veli Adı']}"
                     wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
-                    st.markdown(f'<a href="{wa_link}" target="_blank">Mesajı Göndermek İçin Buraya Tıklayın</a>', unsafe_allow_html=True)
+                    st.markdown(f'[Mesajı Göndermek İçin Buraya Tıklayın]({wa_link})')
             else:
-                st.info("Kayıt bulunamadı.")
+                st.info("Kayıtlar sayfasında veri bulunamadı.")
         except:
-            st.error("⚠️ Veriler yüklenemedi. Google Tablo Paylaşım ayarlarını 'Bağlantıya sahip olan herkes' olarak güncelleyin.")
+            st.error("⚠️ Veriler yüklenemedi. Sayfa isminin 'Kayıtlar' olduğundan emin olun.")
 
-    # --- TAB 3: MHRS ---
+    # --- TAB 3: MHRS BİLGİLERİ ---
     with tab3:
-        st.subheader("🏥 MHRS Bilgileri")
-        try:
-            m_df = pd.read_csv(MHRS_CSV)
-            st.dataframe(m_df, use_container_width=True)
-        except:
-            st.info("MHRS verisi henüz yok veya okunamadı.")
+        m_col1, m_col2 = st.columns([1, 2])
+        with m_col1:
+            st.subheader("🏥 MHRS Bilgisi Ekle")
+            with st.form("mhrs_form", clear_on_submit=True):
+                m_ad = st.text_input("Öğrenci Ad Soyad")
+                m_tc = st.text_input("TC No")
+                m_sifre = st.text_input("MHRS Şifre")
+                m_anne = st.text_input("Anne Adı")
+                m_baba = st.text_input("Baba Adı")
+                
+                if st.form_submit_button("🏥 MHRS Kaydet"):
+                    if m_ad:
+                        # form_tipi: "mhrs" -> Bu veriyi "MHRS" sayfasına gönderir
+                        payload_mhrs = {
+                            "form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, 
+                            "sifre": m_sifre, "anne": m_anne, "baba": m_baba
+                        }
+                        try:
+                            requests.post(GOOGLE_URL, data=payload_mhrs, timeout=10)
+                            st.success(f"✅ {m_ad} MHRS listesine eklendi!")
+                            st.cache_data.clear()
+                        except:
+                            st.error("❌ Gönderilemedi!")
 
+        with m_col2:
+            st.subheader("📋 MHRS Listesi")
+            try:
+                mhrs_df = pd.read_csv(MHRS_CSV)
+                if not mhrs_df.empty:
+                    st.dataframe(mhrs_df, use_container_width=True)
+                else:
+                    st.info("MHRS sayfasında henüz veri yok.")
+            except:
+                st.error("⚠️ MHRS verileri okunamadı. Sayfa isminin 'MHRS' olduğundan emin olun.")
