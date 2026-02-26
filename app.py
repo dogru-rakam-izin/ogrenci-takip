@@ -30,7 +30,7 @@ SHEET_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
 KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kayıtlar"
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
 # Veri gönderme (Script) linki
-GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwu28U2gXrEypbRE2PgBEaq6AHnHnLv0j5tqAyiksk8An4XyA0REdEjAFakTIEsoLJ-uQ/exec"
+GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxMcp8FZELOmiAPHA4TJz7N5rdW0e77ZkA79QVAvKPHVzkJPiFOVX6QTmgGVinBkn4jeA/exec"
 
 def renk_ata(val):
     colors = {'Hastane Sürecinde': '#FFA500', 'RAM Sürecinde': '#1E90FF', 
@@ -110,3 +110,4 @@ if giris_yap():
             st.dataframe(m_df, use_container_width=True)
         except:
             st.info("MHRS verisi henüz yok veya okunamadı.")
+
