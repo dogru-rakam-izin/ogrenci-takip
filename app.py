@@ -31,7 +31,7 @@ KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=o
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
 
 # YENİ ALDIĞINIZ GOOGLE SCRIPT URL'Sİ
-GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwT6l8hXtguAt6xNS2awOV5T8tM7ihi60vnNVCQfjtDq8fiE_KIg9s5fXvztBmT7WIZVg/exec"
+GOOGLE_URL = "https://script.google.com/macros/s/AKfycbw1OS0Oj5neHETLoxv6-_bx5_OZHJbfW5Im6F_w_xGa5eU41DRYCqLBcMgj6PPGv1PZ8w/exec"
 
 def renk_ata(val):
     colors = {'Hastane Sürecinde': '#FFA500', 'RAM Sürecinde': '#1E90FF', 
@@ -128,3 +128,4 @@ if giris_yap():
                     st.info("MHRS sayfasında henüz veri yok.")
             except:
                 st.error("⚠️ MHRS verileri okunamadı. Sayfa isminin 'MHRS' olduğundan emin olun.")
+
