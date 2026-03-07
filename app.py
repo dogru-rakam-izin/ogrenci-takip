@@ -109,19 +109,51 @@ if giris_yap():
                     st.dataframe(df, use_container_width=True)
                 
                 # WhatsApp Paylaşım
-                st.markdown("---")
-                st.subheader("📲 WhatsApp ile Paylaş")
-                if 'Ad Soyad' in df.columns:
-                    secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
-                    if st.button("🟢 WhatsApp Mesajı Hazırla"):
-                        satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
-                        # Dinamik sütun kontrolü
-                        veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
-                        durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
-                        
-                        mesaj = f"*Öğrenci Bilgisi*\n👤 *İsim:* {secilen_ogrenci}\n📋 *Durum:* {durum_bilgisi}\n👨‍👩‍👦 *Veli:* {veli_ismi}"
-                        wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
-                        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">WhatsApp ile Gönder</button></a>', unsafe_allow_html=True)
+               
+st.markdown("---")
+st.subheader("📲 WhatsApp ile Paylaş")
+if 'Ad Soyad' in df.columns:
+    secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
+    
+    if st.button("🟢 WhatsApp Mesajı Hazırla"):
+        # Seçilen öğrencinin satırını bul
+        satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
+        
+        # Sütun isimlerini kontrol ederek verileri çek (Boşsa 'Belirtilmemiş' yazar)
+        veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
+        durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
+        # DEĞERLENDİRME alanını buradan ekliyoruz:
+        degerlendirme_notu = satir.get('Değerlendirme', satir.get('Değer', 'Belirtilmemiş'))
+        
+        # WhatsApp Mesaj Taslağı
+        mesaj = (
+            f"*Öğrenci Bilgisi*\n"
+            f"👤 *İsim:* {secilen_ogrenci}\n"
+            f"📋 *Durum:* {durum_bilgisi}\n"
+            f"👨‍👩‍👦 *Veli:* {veli_ismi}\n"
+            f"📝 *Değerlendirme:* {degerlendirme_notu}"
+        )
+        
+        # URL kodlama ve Link oluşturma
+        wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
+        
+        # Şık bir buton ile yönlendirme
+        st.markdown(f'''
+            <a href="{wa_link}" target="_blank">
+                <button style="
+                    background-color:#25D366; 
+                    color:white; 
+                    border:none; 
+                    padding:12px 24px; 
+                    border-radius:8px; 
+                    cursor:pointer; 
+                    font-weight:bold;
+                    width:100%;
+                    font-size:16px;">
+                    WhatsApp ile Gönder
+                </button>
+            </a>
+            ''', unsafe_allow_html=True)
             else:
                 st.info("Kayıtlar sayfasında henüz veri yok.")
         except Exception as e:
@@ -162,5 +194,6 @@ if giris_yap():
                     st.info("MHRS sayfasında henüz veri yok.")
             except:
                 st.info("MHRS verileri henüz yüklenmedi.")
+
 
 
