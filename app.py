@@ -46,7 +46,7 @@ if giris_yap():
                 ad = st.text_input("Ad Soyad")
                 yas = st.text_input("Yaş - Sınıf")
                 veli = st.text_input("Veli Adı")
-                tel = st.text_input("Telefon")
+                tel_input = st.text_input("Telefon")
                 adres = st.text_area("Adres")
                 deger_input = st.text_area("Değerlendirme Notu")
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
@@ -56,7 +56,7 @@ if giris_yap():
                     if ad:
                         payload = {
                             "form_tipi": "kayit", "tarih": str(datetime.now().date()), 
-                            "ad": ad, "yas": yas, "veli": veli, "tel": tel, 
+                            "ad": ad, "yas": yas, "veli": veli, "tel": tel_input, 
                             "adres": adres, "deger": deger_input, "karar": karar, "sonuc": sonuc
                         }
                         try:
@@ -82,13 +82,11 @@ if giris_yap():
         try:
             df = pd.read_csv(KAYITLAR_CSV)
             if not df.empty:
-                # Veri Temizliği
                 df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
                 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 df = df.fillna("")
                 df.columns = df.columns.str.strip()
                 
-                # Tablo Gösterimi
                 sonuc_col = 'Sonuç' if 'Sonuç' in df.columns else None
                 if sonuc_col:
                     st.dataframe(df.style.applymap(renk_ata, subset=[sonuc_col]), use_container_width=True)
@@ -102,22 +100,23 @@ if giris_yap():
                     secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
                     
                     if st.button("🟢 WhatsApp Mesajı Hazırla"):
-                        # Satırı seç
                         satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
                         
-                        # Sütun verilerini güvenli bir şekilde çek (Tırnak içine alındı)
+                        # --- VERİLERİ ÇEKME ---
                         veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
                         durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
-                        
-                        # "Değerlendirme" sütununu çekiyoruz (Hatanın kaynağı burasıydı, düzeltildi)
                         degerlendirme_notu = satir.get('Değerlendirme', 'Not yok')
                         
-                        # Mesaj Taslağı
+                        # Telefon bilgisini çekiyoruz (Sütun adı 'Telefon' veya 'Tel' olabilir)
+                        telefon_no = satir.get('Telefon', satir.get('Tel', 'Belirtilmemiş'))
+                        
+                        # Mesaj Taslağı (Telefon eklendi)
                         mesaj = (
                             f"*ÖĞRENCİ BİLGİ FORMU*\n\n"
                             f"👤 *İsim:* {secilen_ogrenci}\n"
                             f"📋 *Durum:* {durum_bilgisi}\n"
                             f"👨‍👩‍👦 *Veli:* {veli_ismi}\n"
+                            f"📞 *Telefon:* {telefon_no}\n"
                             f"📝 *Değerlendirme:* {degerlendirme_notu}"
                         )
                         
