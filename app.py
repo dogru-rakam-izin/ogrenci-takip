@@ -23,7 +23,6 @@ def giris_yap():
 # --- 2. AYARLAR VE LİNKLER ---
 st.set_page_config(page_title="Rehabilitasyon Takip Sistemi", layout="wide")
 
-# Google Sheets Bilgileri
 SHEET_ID = "1D3O81aBlU7emmHa--V9lugT01Vo0i_oJPFCCu6EQffw"
 KAYITLAR_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Kay%C4%B1tlar"
 MHRS_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=MHRS"
@@ -37,7 +36,6 @@ def renk_ata(val):
 if giris_yap():
     tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Excel", "🏥 MHRS Bilgileri"])
 
-    # --- TAB 1: YENİ KAYIT VE GÜNCELLEME ---
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -77,7 +75,6 @@ if giris_yap():
                     st.success("Güncelleme isteği gönderildi!")
                     st.cache_data.clear()
 
-    # --- TAB 2: ÖĞRENCİ LİSTESİ VE WHATSAPP ---
     with tab2:
         try:
             df = pd.read_csv(KAYITLAR_CSV)
@@ -87,13 +84,17 @@ if giris_yap():
                 df = df.fillna("")
                 df.columns = df.columns.str.strip()
                 
+                # --- TELEFON NUMARALARINDAKİ .0 HATASINI DÜZELTME ---
+                for col in ['Telefon', 'Tel']:
+                    if col in df.columns:
+                        df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
+                
                 sonuc_col = 'Sonuç' if 'Sonuç' in df.columns else None
                 if sonuc_col:
                     st.dataframe(df.style.applymap(renk_ata, subset=[sonuc_col]), use_container_width=True)
                 else:
                     st.dataframe(df, use_container_width=True)
                 
-                # --- WHATSAPP BÖLÜMÜ ---
                 st.markdown("---")
                 st.subheader("📲 WhatsApp ile Paylaş")
                 if 'Ad Soyad' in df.columns:
@@ -102,15 +103,11 @@ if giris_yap():
                     if st.button("🟢 WhatsApp Mesajı Hazırla"):
                         satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
                         
-                        # --- VERİLERİ ÇEKME ---
                         veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
                         durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
                         degerlendirme_notu = satir.get('Değerlendirme', 'Not yok')
-                        
-                        # Telefon bilgisini çekiyoruz (Sütun adı 'Telefon' veya 'Tel' olabilir)
                         telefon_no = satir.get('Telefon', satir.get('Tel', 'Belirtilmemiş'))
                         
-                        # Mesaj Taslağı (Telefon eklendi)
                         mesaj = (
                             f"*ÖĞRENCİ BİLGİ FORMU*\n\n"
                             f"👤 *İsim:* {secilen_ogrenci}\n"
@@ -127,7 +124,6 @@ if giris_yap():
         except Exception as e:
             st.error(f"⚠️ Veriler yüklenemedi: {e}")
 
-    # --- TAB 3: MHRS BİLGİLERİ ---
     with tab3:
         m_col1, m_col2 = st.columns([1, 2])
         with m_col1:
@@ -157,6 +153,9 @@ if giris_yap():
             try:
                 mhrs_df = pd.read_csv(MHRS_CSV)
                 if not mhrs_df.empty:
+                    # MHRS listesinde de TC ve Şifre kısımlarında .0 olmaması için aynı temizlik:
+                    for c in mhrs_df.columns:
+                        mhrs_df[c] = mhrs_df[c].astype(str).str.replace(r'\.0$', '', regex=True)
                     st.dataframe(mhrs_df, use_container_width=True)
                 else:
                     st.info("MHRS sayfasında henüz veri yok.")
