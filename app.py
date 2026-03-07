@@ -48,7 +48,7 @@ if giris_yap():
                 veli = st.text_input("Veli Adı")
                 tel = st.text_input("Telefon")
                 adres = st.text_area("Adres")
-                deger = st.text_area("Değerlendirme")
+                deger_input = st.text_area("Değerlendirme Notu")
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
                 sonuc = st.selectbox("Sonuç", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
                 
@@ -57,7 +57,7 @@ if giris_yap():
                         payload = {
                             "form_tipi": "kayit", "tarih": str(datetime.now().date()), 
                             "ad": ad, "yas": yas, "veli": veli, "tel": tel, 
-                            "adres": adres, "deger": deger, "karar": karar, "sonuc": sonuc
+                            "adres": adres, "deger": deger_input, "karar": karar, "sonuc": sonuc
                         }
                         try:
                             requests.post(GOOGLE_URL, data=payload, timeout=10)
@@ -95,27 +95,30 @@ if giris_yap():
                 else:
                     st.dataframe(df, use_container_width=True)
                 
-                # --- GÜNCELLENEN WHATSAPP BÖLÜMÜ ---
+                # --- WHATSAPP BÖLÜMÜ ---
                 st.markdown("---")
                 st.subheader("📲 WhatsApp ile Paylaş")
                 if 'Ad Soyad' in df.columns:
                     secilen_ogrenci = st.selectbox("Paylaşılacak Kişiyi Seçin", df['Ad Soyad'].unique())
                     
                     if st.button("🟢 WhatsApp Mesajı Hazırla"):
+                        # Satırı seç
                         satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
                         
-                        # Verileri çekme (Sütun isimleri farklıysa alternatifleri dener)
+                        # Sütun verilerini güvenli bir şekilde çek (Tırnak içine alındı)
                         veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
                         durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
-                        degerlendirme = satir.get('Değerlendirme', satir.get('Değer', 'Belirtilmemiş'))
                         
-                        # Mesaj Taslağı (Değerlendirme eklendi)
+                        # "Değerlendirme" sütununu çekiyoruz (Hatanın kaynağı burasıydı, düzeltildi)
+                        degerlendirme_notu = satir.get('Değerlendirme', 'Not yok')
+                        
+                        # Mesaj Taslağı
                         mesaj = (
                             f"*ÖĞRENCİ BİLGİ FORMU*\n\n"
                             f"👤 *İsim:* {secilen_ogrenci}\n"
                             f"📋 *Durum:* {durum_bilgisi}\n"
                             f"👨‍👩‍👦 *Veli:* {veli_ismi}\n"
-                            f"📝 *Değerlendirme:* {değerlendirme}"
+                            f"📝 *Değerlendirme:* {degerlendirme_notu}"
                         )
                         
                         wa_link = f"https://wa.me/?text={urllib.parse.quote(mesaj)}"
