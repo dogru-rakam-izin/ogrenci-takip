@@ -35,12 +35,9 @@ def renk_ata(val):
     return f'background-color: {colors.get(val, "white")}; color: white; font-weight: bold; border-radius: 5px;'
 
 if giris_yap():
-    # Veriyi en başta çekiyoruz ki seçim kutularında kullanabilelim
+    # Verileri çek
     try:
-        df_ana = pd.read_csv(KAYITLAR_CSV)
-        df_ana = df_ana.dropna(how='all', axis=0).dropna(how='all', axis=1)
-        df_ana = df_ana.loc[:, ~df_ana.columns.str.contains('^Unnamed')]
-        df_ana = df_ana.fillna("")
+        df_ana = pd.read_csv(KAYITLAR_CSV).dropna(how='all', axis=0).fillna("")
         df_ana.columns = df_ana.columns.str.strip()
     except:
         df_ana = pd.DataFrame()
@@ -56,69 +53,64 @@ if giris_yap():
                 ad = st.text_input("Ad Soyad")
                 yas = st.text_input("Yaş - Sınıf")
                 veli = st.text_input("Veli Adı")
-                tel_input = st.text_input("Telefon")
+                tel = st.text_input("Telefon")
                 adres = st.text_area("Adres")
-                deger_input = st.text_area("Değerlendirme Notu")
+                deger = st.text_area("Değerlendirme Notu")
                 karar = st.selectbox("Karar", ["Gelişim Takibi", "Rapor", "Özel", "Beklemede"])
                 sonuc = st.selectbox("Sonuç", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
-                
                 if st.form_submit_button("💾 Kaydet"):
-                    if ad:
-                        payload = {
-                            "form_tipi": "kayit", "islem_tipi": "yeni", "tarih": str(datetime.now().date()), 
-                            "ad": ad, "yas": yas, "veli": veli, "tel": tel_input, 
-                            "adres": adres, "deger": deger_input, "karar": karar, "sonuc": sonuc
-                        }
-                        requests.post(GOOGLE_URL, data=payload)
-                        st.success(f"✅ {ad} başarıyla eklendi!")
-                        st.cache_data.clear()
+                    payload = {"form_tipi": "kayit", "islem_tipi": "yeni", "tarih": str(datetime.now().date()), "ad": ad, "yas": yas, "veli": veli, "tel": tel, "adres": adres, "deger": deger, "karar": karar, "sonuc": sonuc}
+                    requests.post(GOOGLE_URL, data=payload)
+                    st.success("Kayıt Başarılı!")
+                    st.cache_data.clear()
 
         with col2:
             st.subheader("🔄 Durum Güncelle")
-            if not df_ana.empty and 'Ad Soyad' in df_ana.columns:
+            if not df_ana.empty:
                 with st.form("guncelle_form"):
-                    # BURASI DEĞİŞTİ: Artık ismi listeden seçiyorsunuz
-                    g_ad = st.selectbox("Güncellenecek Öğrenciyi Seçin", df_ana['Ad Soyad'].unique())
-                    yeni_s = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
-                    
-                    if st.form_submit_button("Güncellemeyi Tamamla"):
-                        payload = {"form_tipi": "kayit", "islem_tipi": "guncelle", "ad": g_ad, "sonuc": yeni_s}
+                    secilen_ad = st.selectbox("Öğrenci Seçin", df_ana['Ad Soyad'].unique())
+                    yeni_durum = st.selectbox("Yeni Durum", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
+                    if st.form_submit_button("Güncelle"):
+                        payload = {"form_tipi": "kayit", "islem_tipi": "guncelle", "ad": secilen_ad, "sonuc": yeni_durum}
                         requests.post(GOOGLE_URL, data=payload)
-                        st.success(f"🔄 {g_ad} durumu '{yeni_s}' olarak güncellendi!")
+                        st.success("Güncelleme Gönderildi!")
                         st.cache_data.clear()
-            else:
-                st.warning("Güncelleme yapabilmek için önce kayıtlı öğrenci olmalıdır.")
 
-    # --- TAB 2: LİSTE VE EXCEL ---
+    # --- TAB 2: LİSTE ---
     with tab2:
         if not df_ana.empty:
-            # Telefon Temizliği
-            for col in ['Telefon', 'Tel']:
-                if col in df_ana.columns:
-                    df_ana[col] = df_ana[col].astype(str).str.replace(r'\.0$', '', regex=True)
-
-            c1, c2 = st.columns([4, 1])
-            with c2:
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    df_ana.to_excel(writer, index=False, sheet_name='Liste')
-                st.download_button("📥 Excel İndir", buffer.getvalue(), "liste.xlsx", "application/vnd.ms-excel")
-
-            sonuc_col = 'Sonuç' if 'Sonuç' in df_ana.columns else None
-            st.dataframe(df_ana.style.applymap(renk_ata, subset=[sonuc_col]) if sonuc_col else df_ana, use_container_width=True)
+            # Excel Hazırla
+            buffer = io.BytesIO()
+            df_ana.to_excel(buffer, index=False)
+            st.download_button("📥 Excel İndir", buffer.getvalue(), "liste.xlsx")
             
-            # WhatsApp Bölümü
-            st.markdown("---")
-            st.subheader("📲 WhatsApp Paylaşımı")
-            secilen_wa = st.selectbox("Paylaşılacak Kişi", df_ana['Ad Soyad'].unique(), key="wa_select")
-            if st.button("🟢 WhatsApp Mesajı Hazırla"):
-                satir = df_ana[df_ana['Ad Soyad'] == secilen_wa].iloc[0]
-                mesaj = f"*BİLGİ FORMU*\n👤 *İsim:* {secilen_wa}\n📋 *Durum:* {satir.get('Sonuç','')}\n📞 *Tel:* {satir.get('Telefon','')}"
-                st.markdown(f'<a href="https://wa.me/?text={urllib.parse.quote(mesaj)}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; width:100%;">Gönder</button></a>', unsafe_allow_html=True)
-        else:
-            st.info("Görüntülenecek veri bulunamadı.")
+            # Tabloyu Göster
+            st.dataframe(df_ana.style.applymap(renk_ata, subset=['Sonuç'] if 'Sonuç' in df_ana.columns else []), use_container_width=True)
+            
+            # WhatsApp
+            st.subheader("📲 WhatsApp")
+            wa_ogrenci = st.selectbox("Mesaj Hazırla", df_ana['Ad Soyad'].unique())
+            if st.button("Hazırla"):
+                s = df_ana[df_ana['Ad Soyad'] == wa_ogrenci].iloc[0]
+                m = f"*BİLGİ*\n👤 {wa_ogrenci}\n📋 {s.get('Sonuç','')}\n📞 {s.get('Telefon','')}"
+                st.markdown(f'[WhatsApp Gönder](https://wa.me/?text={urllib.parse.quote(m)})')
 
-    # --- TAB 3: MHRS ---
+    # --- TAB 3: MHRS (Geri Geldi) ---
     with tab3:
-        # (MHRS kodlarınız buraya aynen gelecek, yapı aynı kaldığı için yer kaplamaması adına kısa tuttum)
-        st.info("MHRS işlemleri Tab 1'deki mantıkla çalışmaya devam eder.")
+        m1, m2 = st.columns([1, 2])
+        with m1:
+            st.subheader("🏥 Bilgi Ekle")
+            with st.form("mhrs_yeni"):
+                m_ad = st.text_input("Ad Soyad")
+                m_tc = st.text_input("TC")
+                m_sf = st.text_input("Şifre")
+                if st.form_submit_button("MHRS Kaydet"):
+                    requests.post(GOOGLE_URL, data={"form_tipi": "mhrs", "ad": m_ad, "tc": m_tc, "sifre": m_sf})
+                    st.success("MHRS Eklendi")
+        with m2:
+            st.subheader("📋 MHRS Listesi")
+            try:
+                mhrs_df = pd.read_csv(MHRS_CSV).fillna("")
+                st.dataframe(mhrs_df, use_container_width=True)
+            except:
+                st.info("Veri yok.")
