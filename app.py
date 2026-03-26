@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import requests
 import urllib.parse
+import io
 
 # --- 1. GİRİŞ PANELİ ---
 def giris_yap():
@@ -34,8 +35,9 @@ def renk_ata(val):
     return f'background-color: {colors.get(val, "white")}; color: white; font-weight: bold; border-radius: 5px;'
 
 if giris_yap():
-    tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Excel", "🏥 MHRS Bilgileri"])
+    tab1, tab2, tab3 = st.tabs(["➕ İşlemler", "📋 Liste & Çıktı", "🏥 MHRS Bilgileri"])
 
+    # --- TAB 1: YENİ KAYIT VE GÜNCELLEME ---
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -53,7 +55,7 @@ if giris_yap():
                 if st.form_submit_button("💾 Kaydet"):
                     if ad:
                         payload = {
-                            "form_tipi": "kayit", "tarih": str(datetime.now().date()), 
+                            "form_tipi": "kayit", "islem_tipi": "yeni", "tarih": str(datetime.now().date()), 
                             "ad": ad, "yas": yas, "veli": veli, "tel": tel_input, 
                             "adres": adres, "deger": deger_input, "karar": karar, "sonuc": sonuc
                         }
@@ -66,15 +68,18 @@ if giris_yap():
 
         with col2:
             st.subheader("🔄 Durum Güncelle")
+            st.info("Sadece sonucunu değiştirmek istediğiniz öğrencinin adını yazın.")
             with st.form("guncelle_form"):
                 g_ad = st.text_input("Güncellenecek Öğrenci Ad Soyad")
                 yeni_s = st.selectbox("Yeni Durum Seçin", ["Kaydedildi", "Hastane Sürecinde", "RAM Sürecinde", "Beklemede", "İptal"])
                 if st.form_submit_button("Güncellemeyi Gönder"):
-                    payload = {"form_tipi": "kayit", "ad": g_ad, "sonuc": yeni_s, "tarih": str(datetime.now().date()) + " (GÜNCEL)"}
+                    # 'islem_tipi': 'guncelle' eklenerek Script'e komut veriyoruz
+                    payload = {"form_tipi": "kayit", "islem_tipi": "guncelle", "ad": g_ad, "sonuc": yeni_s}
                     requests.post(GOOGLE_URL, data=payload)
-                    st.success("Güncelleme isteği gönderildi!")
+                    st.success(f"🔄 {g_ad} için güncelleme isteği gönderildi!")
                     st.cache_data.clear()
 
+    # --- TAB 2: ÖĞRENCİ LİSTESİ VE ÇIKTI ALMA ---
     with tab2:
         try:
             df = pd.read_csv(KAYITLAR_CSV)
@@ -84,17 +89,32 @@ if giris_yap():
                 df = df.fillna("")
                 df.columns = df.columns.str.strip()
                 
-                # --- TELEFON NUMARALARINDAKİ .0 HATASINI DÜZELTME ---
                 for col in ['Telefon', 'Tel']:
                     if col in df.columns:
                         df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
                 
+                # --- ÇIKTI ALMA BUTONLARI ---
+                c1, c2 = st.columns([4, 1])
+                with c2:
+                    # Excel Çıktısı hazırlama
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df.to_excel(writer, index=False, sheet_name='Ogrenci_Listesi')
+                    
+                    st.download_button(
+                        label="📥 Listeyi Excel İndir",
+                        data=buffer.getvalue(),
+                        file_name=f"Ogrenci_Listesi_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                        mime="application/vnd.ms-excel"
+                    )
+
                 sonuc_col = 'Sonuç' if 'Sonuç' in df.columns else None
                 if sonuc_col:
                     st.dataframe(df.style.applymap(renk_ata, subset=[sonuc_col]), use_container_width=True)
                 else:
                     st.dataframe(df, use_container_width=True)
                 
+                # --- WHATSAPP BÖLÜMÜ ---
                 st.markdown("---")
                 st.subheader("📲 WhatsApp ile Paylaş")
                 if 'Ad Soyad' in df.columns:
@@ -102,7 +122,6 @@ if giris_yap():
                     
                     if st.button("🟢 WhatsApp Mesajı Hazırla"):
                         satir = df[df['Ad Soyad'] == secilen_ogrenci].iloc[0]
-                        
                         veli_ismi = satir.get('Veli Adı', satir.get('Veli', 'Belirtilmemiş'))
                         durum_bilgisi = satir.get('Sonuç', 'Belirtilmemiş')
                         degerlendirme_notu = satir.get('Değerlendirme', 'Not yok')
@@ -124,6 +143,7 @@ if giris_yap():
         except Exception as e:
             st.error(f"⚠️ Veriler yüklenemedi: {e}")
 
+    # --- TAB 3: MHRS BİLGİLERİ ---
     with tab3:
         m_col1, m_col2 = st.columns([1, 2])
         with m_col1:
@@ -153,7 +173,6 @@ if giris_yap():
             try:
                 mhrs_df = pd.read_csv(MHRS_CSV)
                 if not mhrs_df.empty:
-                    # MHRS listesinde de TC ve Şifre kısımlarında .0 olmaması için aynı temizlik:
                     for c in mhrs_df.columns:
                         mhrs_df[c] = mhrs_df[c].astype(str).str.replace(r'\.0$', '', regex=True)
                     st.dataframe(mhrs_df, use_container_width=True)
